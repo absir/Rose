@@ -1,0 +1,98 @@
+/* $Id: progress_bar.cpp 54604 2012-07-07 00:49:45Z loonycyborg $ */
+/*
+   Copyright (C) 2010 - 2012 by Mark de Wever <koraq@xs4all.nl>
+   Part of the Battle for Wesnoth Project http://www.wesnoth.org/
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY.
+
+   See the COPYING file for more details.
+*/
+
+#define GETTEXT_DOMAIN "rose-lib"
+
+#include "gui/widgets/progress_bar.hpp"
+
+#include "gui/widgets/settings.hpp"
+#include "gui/widgets/track.hpp"
+#include "gui/widgets/window.hpp"
+#include "gui/dialogs/dialog.hpp"
+#include "wml_exception.hpp"
+#include "area_anim.hpp"
+
+#include "font.hpp"
+#include <boost/bind.hpp>
+
+namespace gui2 {
+
+tprogress_bar::tprogress_bar(twindow& window, twidget& widget, tprogress_::tslot& slot, const std::string& message, int initial_percentage)
+	: tbase_tpl_widget(window, widget)
+	, widget_(dynamic_cast<ttrack*>(&widget))
+	, slot_(slot)
+	, message_(message)
+	, percentage_(initial_percentage)
+
+{
+	VALIDATE(percentage_ >= PROGRESS_MIN_PERCENTAGE && percentage_ <= PROGRESS_MAX_PERCENTAGE, null_str);
+	widget_->set_did_draw(boost::bind(&tprogress_bar::did_draw_bar, this, _1, _2, _3));
+}
+
+tprogress_bar::~tprogress_bar()
+{
+}
+
+bool tprogress_bar::set_percentage(const int percentage)
+{
+	VALIDATE(percentage >= PROGRESS_MIN_PERCENTAGE && percentage <= PROGRESS_MAX_PERCENTAGE, null_str);
+
+	if (percentage == percentage_) {
+		return false;
+	}
+
+	percentage_ = percentage;
+
+	if (widget_->get_visible() == twidget::VISIBLE) {
+		SDL_Rect rect = widget_->get_draw_rect();
+		did_draw_bar(*widget_, rect, false);
+	}
+	return true;
+}
+
+bool tprogress_bar::set_message(const std::string& message)
+{
+	if (message == message_) {
+		return false;
+	}
+
+	message_ = message;
+
+	if (widget_->get_visible() == twidget::VISIBLE) {
+		SDL_Rect rect = widget_->get_draw_rect();
+		did_draw_bar(*widget_, rect, false);
+	}
+	return true;
+}
+
+void tprogress_bar::did_draw_bar(ttrack& widget, const SDL_Rect& widget_rect, const bool bg_drawn)
+{
+	if (window_.get_visible() != twidget::VISIBLE) {
+		return;
+	}
+
+	SDL_Renderer* renderer = get_renderer();
+	ttrack::tdraw_lock lock(renderer, widget);
+
+	if (!bg_drawn) {
+		SDL_RenderCopy(renderer, widget.background_texture().get(), NULL, &widget_rect);
+	}
+
+	slot_.did_draw_bar(widget, widget_rect, percentage_, message_);
+}
+
+
+} // namespace gui2
+
